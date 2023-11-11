@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 
 import Quill from 'quill';
@@ -42,6 +42,9 @@ const toolbarOptions = [
 
 const Editor = () =>{
 
+    const [socket, setSocket] = useState();
+    const [quill, setQuill] = useState();
+
     useEffect(()=>{
         const quillserver = new Quill('#container', { 
             theme: 'snow',
@@ -49,15 +52,47 @@ const Editor = () =>{
                 toolbar:toolbarOptions
             }
         })
+        setQuill(quillserver);
     }, []);
 
     useEffect(()=>{
-        const socket = io('http://localhost:9000');
-
+        const socketServer = io('http://localhost:9000');
+        setSocket(socketServer);
         return () =>{
-            socket.disconnect();
+            socketServer.disconnect();
         }
-    });
+    },[]);
+
+    useEffect(() => {
+        if(socket === null || quill === null) return
+
+        const handleChange = (delta, oldData, source)=>{
+            if(source !== 'user') return;
+
+            socket && socket.emit('send-changes', delta);
+        }
+        quill && quill.on('text-change', handleChange);
+
+
+        return ()=>{
+            quill && quill.off('text-change', handleChange);
+        }
+    },[quill, socket]);  
+
+    useEffect(() => {
+        if(socket === null || quill === null) return
+
+        const handleChange = (delta)=>{
+            quill.updateContents(delta);
+
+        }
+        socket && socket.on('recieve-changes', handleChange);
+
+
+        return ()=>{
+            socket && socket.off('recieve-changes', handleChange);
+        }
+    },[quill, socket]);  
 
     return(
         <Component>
